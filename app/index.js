@@ -136,13 +136,9 @@ export default class App {
         text,
         viewport: this.viewport,
         onClick: (mediaItem) => {
-          // Handle click action here
-          console.log('Clicked on:', mediaItem.text, 'Index:', mediaItem.index)
-          // You can add your custom action here, e.g.:
-          // - Navigate to a detail page
-          // - Open a modal
-          // - Play an animation
-          // - etc.
+          // Navigate to detail page with item ID
+          const itemIndex = mediaItem.index % (this.mediasImages.length / 2)
+          window.location.href = `detail.html?id=${itemIndex}`
         }
       })
 

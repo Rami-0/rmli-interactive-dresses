@@ -1,0 +1,2 @@
+import DetailApp from './DetailApp'
+

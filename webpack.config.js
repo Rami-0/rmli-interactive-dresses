@@ -12,10 +12,16 @@ const dirStyles = path.join(__dirname, 'styles')
 const dirNode = 'node_modules'
 
 module.exports = {
-  entry: [
-    path.join(dirApp, 'index.js'),
-    path.join(dirStyles, 'index.scss')
-  ],
+  entry: {
+    main: [
+      path.join(dirApp, 'index.js'),
+      path.join(dirStyles, 'index.scss')
+    ],
+    detail: [
+      path.join(dirApp, 'detail.js'),
+      path.join(dirStyles, 'index.scss')
+    ]
+  },
 
   resolve: {
     modules: [
@@ -36,7 +42,13 @@ module.exports = {
 
     new HtmlWebpackPlugin({
       filename: 'index.html',
-      template: path.join(__dirname, 'index.html')
+      template: path.join(__dirname, 'index.html'),
+      chunks: ['main']
+    }),
+    new HtmlWebpackPlugin({
+      filename: 'detail.html',
+      template: path.join(__dirname, 'detail.html'),
+      chunks: ['detail']
     }),
 
     new MiniCssExtractPlugin({
