@@ -4,10 +4,12 @@ import { useState, useMemo, useCallback } from 'react';
 import { characterData } from '@/lib/constants/characters';
 import { useWebGLCarousel } from './hooks/useWebGLCarousel';
 import HoverTooltip from '../HoverTooltip';
+import Carousel from '../Carousel';
 import Media from './Media';
 
 export default function App() {
   const [hoveredItem, setHoveredItem] = useState<string | null>(null);
+  const [currentSlide, setCurrentSlide] = useState(0);
 
   // Prepare dress data for the carousel - duplicate for infinite scroll
   const mediasImages = useMemo(() => {
@@ -30,10 +32,22 @@ export default function App() {
     }
   }, []);
 
-  const containerRef = useWebGLCarousel({ 
+  // Handle slide changes from scrolling
+  const handleSlideChange = useCallback((index: number) => {
+    setCurrentSlide(index);
+  }, []);
+
+  const { containerRef, navigateToSlide } = useWebGLCarousel({ 
     mediasImages, 
-    onHover: handleHover 
+    onHover: handleHover,
+    onSlideChange: handleSlideChange
   });
+
+  // Handle navigation from carousel controls
+  const handleCarouselNavigate = useCallback((index: number) => {
+    navigateToSlide(index);
+    setCurrentSlide(index);
+  }, [navigateToSlide]);
 
   return (
     <>
@@ -50,6 +64,11 @@ export default function App() {
         }} 
       />
       <HoverTooltip text={hoveredItem} />
+      <Carousel
+        totalSlides={characterData.length}
+        currentIndex={currentSlide}
+        onNavigate={handleCarouselNavigate}
+      />
     </>
   );
 }

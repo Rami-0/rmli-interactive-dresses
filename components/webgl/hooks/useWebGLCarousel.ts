@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Renderer, Camera, Transform, Plane } from 'ogl';
 import NormalizeWheel from 'normalize-wheel';
@@ -27,12 +27,14 @@ interface MediaImage {
 interface UseWebGLCarouselProps {
   mediasImages: MediaImage[];
   onHover?: (mediaItem: Media | null) => void;
+  onSlideChange?: (index: number) => void;
 }
 
-export function useWebGLCarousel({ mediasImages, onHover }: UseWebGLCarouselProps) {
+export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWebGLCarouselProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const onHoverRef = useRef(onHover);
+  const onSlideChangeRef = useRef(onSlideChange);
   const appRef = useRef<{
     renderer?: Renderer;
     gl?: WebGLRenderingContext | WebGL2RenderingContext;
@@ -58,6 +60,11 @@ export function useWebGLCarousel({ mediasImages, onHover }: UseWebGLCarouselProp
   useEffect(() => {
     onHoverRef.current = onHover;
   }, [onHover]);
+
+  // Keep onSlideChange ref up to date
+  useEffect(() => {
+    onSlideChangeRef.current = onSlideChange;
+  }, [onSlideChange]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
@@ -356,6 +363,8 @@ export function useWebGLCarousel({ mediasImages, onHover }: UseWebGLCarouselProp
       window.addEventListener('touchmove', onTouchMove as EventListener);
       window.addEventListener('touchend', onTouchUp as EventListener);
 
+      let lastReportedIndex = -1;
+
       const update = () => {
         if (!app.scroll || !app.renderer || !app.camera || !app.scene) return;
 
@@ -369,6 +378,21 @@ export function useWebGLCarousel({ mediasImages, onHover }: UseWebGLCarouselProp
 
         if (app.medias) {
           app.medias.forEach((media) => media.update(scroll, app.direction!));
+          
+          // Track current slide during animation for smooth carousel indicator updates
+          const { width } = app.medias[0];
+          if (width) {
+            const currentItemIndex = Math.round(Math.abs(scroll.current) / width);
+            const actualIndex = currentItemIndex % (mediasImages.length / 2);
+            
+            // Only notify if the index actually changed
+            if (actualIndex !== lastReportedIndex) {
+              lastReportedIndex = actualIndex;
+              if (onSlideChangeRef.current) {
+                onSlideChangeRef.current(actualIndex);
+              }
+            }
+          }
         }
 
         if (app.background) {
@@ -422,6 +446,19 @@ export function useWebGLCarousel({ mediasImages, onHover }: UseWebGLCarouselProp
     };
   }, [router, mediasImages]); // Removed onHover from dependencies
 
-  return containerRef;
+  // Navigation function for carousel
+  const navigateToSlide = useCallback((index: number) => {
+    const app = appRef.current;
+    if (!app.medias || app.medias.length === 0) return;
+
+    const { width } = app.medias[0];
+    if (!width || width === 0) return;
+
+    if (app.scroll) {
+      app.scroll.target = width * index;
+    }
+  }, []);
+
+  return { containerRef, navigateToSlide };
 }
 
