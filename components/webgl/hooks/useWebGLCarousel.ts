@@ -459,6 +459,19 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
     }
   }, []);
 
-  return { containerRef, navigateToSlide };
+  // Get current scroll info for smarter navigation
+  const getScrollInfo = useCallback(() => {
+    const app = appRef.current;
+    if (!app.medias || app.medias.length === 0 || !app.scroll) {
+      return { currentItemIndex: 0, width: 0 };
+    }
+
+    const { width } = app.medias[0];
+    const currentItemIndex = Math.round(Math.abs(app.scroll.current || 0) / width);
+    
+    return { currentItemIndex, width };
+  }, []);
+
+  return { containerRef, navigateToSlide, getScrollInfo };
 }
 

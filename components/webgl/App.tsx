@@ -37,17 +37,44 @@ export default function App() {
     setCurrentSlide(index);
   }, []);
 
-  const { containerRef, navigateToSlide } = useWebGLCarousel({ 
+  const { containerRef, navigateToSlide, getScrollInfo } = useWebGLCarousel({ 
     mediasImages, 
     onHover: handleHover,
     onSlideChange: handleSlideChange
   });
 
   // Handle navigation from carousel controls
-  const handleCarouselNavigate = useCallback((index: number) => {
-    navigateToSlide(index);
-    setCurrentSlide(index);
-  }, [navigateToSlide]);
+  const handleCarouselNavigate = useCallback((targetIndex: number) => {
+    // Find the closest occurrence of the target dress in the duplicated array
+    const { currentItemIndex, width } = getScrollInfo();
+    
+    if (!width) return;
+    
+    // Find all occurrences of the target index in the duplicated array
+    const dressCount = characterData.length;
+    const occurrences: number[] = [];
+    
+    for (let i = 0; i < mediasImages.length; i++) {
+      if (i % dressCount === targetIndex) {
+        occurrences.push(i);
+      }
+    }
+    
+    // Find the closest occurrence to current position
+    let closestIndex = occurrences[0];
+    let minDistance = Math.abs(currentItemIndex - closestIndex);
+    
+    occurrences.forEach(index => {
+      const distance = Math.abs(currentItemIndex - index);
+      if (distance < minDistance) {
+        minDistance = distance;
+        closestIndex = index;
+      }
+    });
+    
+    navigateToSlide(closestIndex);
+    setCurrentSlide(targetIndex);
+  }, [navigateToSlide, getScrollInfo, mediasImages.length]);
 
   return (
     <>
@@ -68,6 +95,7 @@ export default function App() {
         totalSlides={characterData.length}
         currentIndex={currentSlide}
         onNavigate={handleCarouselNavigate}
+        infiniteLoop={true}
       />
     </>
   );

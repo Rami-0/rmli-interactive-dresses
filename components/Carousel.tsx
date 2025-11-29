@@ -7,9 +7,10 @@ interface CarouselProps {
   totalSlides: number;
   currentIndex: number;
   onNavigate: (index: number) => void;
+  infiniteLoop?: boolean;
 }
 
-export default function Carousel({ totalSlides, currentIndex, onNavigate }: CarouselProps) {
+export default function Carousel({ totalSlides, currentIndex, onNavigate, infiniteLoop = false }: CarouselProps) {
   const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
@@ -19,14 +20,26 @@ export default function Carousel({ totalSlides, currentIndex, onNavigate }: Caro
   if (!mounted) return null;
 
   const handlePrevious = () => {
-    if (currentIndex > 0) {
-      onNavigate(currentIndex - 1);
+    if (infiniteLoop) {
+      // With infinite loop, wrap around
+      const prevIndex = currentIndex === 0 ? totalSlides - 1 : currentIndex - 1;
+      onNavigate(prevIndex);
+    } else {
+      if (currentIndex > 0) {
+        onNavigate(currentIndex - 1);
+      }
     }
   };
 
   const handleNext = () => {
-    if (currentIndex < totalSlides - 1) {
-      onNavigate(currentIndex + 1);
+    if (infiniteLoop) {
+      // With infinite loop, wrap around
+      const nextIndex = currentIndex === totalSlides - 1 ? 0 : currentIndex + 1;
+      onNavigate(nextIndex);
+    } else {
+      if (currentIndex < totalSlides - 1) {
+        onNavigate(currentIndex + 1);
+      }
     }
   };
 
@@ -35,7 +48,7 @@ export default function Carousel({ totalSlides, currentIndex, onNavigate }: Caro
       <button
         className="carousel__arrow carousel__arrow--left"
         onClick={handlePrevious}
-        disabled={currentIndex === 0}
+        disabled={!infiniteLoop && currentIndex === 0}
         aria-label="Previous slide"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -58,7 +71,7 @@ export default function Carousel({ totalSlides, currentIndex, onNavigate }: Caro
       <button
         className="carousel__arrow carousel__arrow--right"
         onClick={handleNext}
-        disabled={currentIndex === totalSlides - 1}
+        disabled={!infiniteLoop && currentIndex === totalSlides - 1}
         aria-label="Next slide"
       >
         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
