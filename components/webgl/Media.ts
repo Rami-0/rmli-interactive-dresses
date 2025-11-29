@@ -179,7 +179,7 @@ export default class Media {
     //    Calculate scale factor: 1.0 at center, decreasing toward edges
     //    Using absolute value of normalizedX so both sides scale down equally
     const scaleDistance = Math.abs(normalizedX);
-    const scaleFactor = 1.0 - scaleDistance * scaleIntensity;
+    const scaleFactor = 0.9 - scaleDistance * scaleIntensity;
 
     //    Apply scale multiplier to base scale (only if base scales exist)
     if (this.baseScaleX && this.baseScaleY) {
@@ -196,7 +196,7 @@ export default class Media {
 
     //    FOCUS AREA - adjust this to control how wide the focus zone is
     //    Larger value = more items stay visible, smaller = sharper focus
-    const focusWidth = this.viewport.width * 0.3;
+    const focusWidth = this.viewport.width * 0.2;
 
     //    Calculate opacity: 1.0 at center, fading to minimum opacity at edges
     //    Using smooth falloff for better visual effect
@@ -204,7 +204,7 @@ export default class Media {
 
     //    MINIMUM OPACITY - adjust this (0.0 to 1.0) to control how faded distant items are
     //    0.0 = completely invisible, 0.3 = slightly visible, etc.
-    const minOpacity = 0.2;
+    const minOpacity = 0.4;
 
     //    Smooth fade using ease-out curve
     const opacity = 1.0 - (1.0 - minOpacity) * (normalizedDistance * normalizedDistance);
@@ -272,14 +272,17 @@ export default class Media {
     }
 
     // LAYOUT CUSTOMIZATION - Item Sizing:
-    // Adjust base scale (1500) to make items larger/smaller overall
-    this.scale = this.screen.height / 1700;
+    // Reduced scale for smaller dresses on screen
+    this.scale = this.screen.height / 1500;
 
-    // Item dimensions - adjust 900 and 700 to change aspect ratio
-    // 900 = height multiplier, 700 = width multiplier
-    // Store base scale values for position-based scaling
-    this.baseScaleY = (this.viewport.height * (800 * this.scale)) / this.screen.height;
-    this.baseScaleX = (this.viewport.width * (600 * this.scale)) / this.screen.width;
+    // Item dimensions - adjusted for portrait dress images with fixed height 1000px
+    // Make plane accommodate widest images (450px) at 1000px height
+    // This prevents stretching or cutting of any dress images
+    this.baseScaleY = (this.viewport.height * (1000 * this.scale)) / this.screen.height;
+
+    // Increased width to accommodate widest images (450px) without stretching
+    // Using 500px to give some breathing room for all images (300-450px range)
+    this.baseScaleX = (this.viewport.width * (500 * this.scale)) / this.screen.width;
 
     // Apply base scale (will be modified in update() based on position)
     this.plane.scale.y = this.baseScaleY;
@@ -288,7 +291,7 @@ export default class Media {
     this.plane.program.uniforms.uPlaneSizes.value = [this.plane.scale.x, this.plane.scale.y];
 
     // LAYOUT CUSTOMIZATION - Spacing:
-    // Change padding to adjust space between items (larger = more space)
+    // Adjusted padding for smaller items
     this.padding = 2;
 
     this.width = this.plane.scale.x + this.padding;
