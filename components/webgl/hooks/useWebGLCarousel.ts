@@ -110,11 +110,18 @@ export function useWebGLCarousel({ mediasImages, onSlideChange }: UseWebGLCarous
       console.log('[useWebGLCarousel] Preloading background image...');
       let preloadedBackgroundImage: HTMLImageElement | undefined;
       try {
-        preloadedBackgroundImage = await BackgroundImage.preloadImage();
+        // Add timeout to prevent blocking on slow networks
+        const preloadPromise = BackgroundImage.preloadImage();
+        const timeoutPromise = new Promise<never>((_, reject) => 
+          setTimeout(() => reject(new Error('Background preload timeout')), 5000)
+        );
+        
+        preloadedBackgroundImage = await Promise.race([preloadPromise, timeoutPromise]);
         console.log('[useWebGLCarousel] Background image preloaded successfully');
       } catch (error) {
-        console.error('[useWebGLCarousel] Failed to preload background image:', error);
+        console.warn('[useWebGLCarousel] Background preload failed or timed out:', error);
         // Continue anyway - BackgroundImage will fallback to loading it
+        preloadedBackgroundImage = undefined;
       }
 
       const scroll: ScrollState = {
@@ -236,23 +243,53 @@ export function useWebGLCarousel({ mediasImages, onSlideChange }: UseWebGLCarous
       });
       app.background = background;
 
-      // CRITICAL: Wait for background image to be fully loaded
-      // This ensures the WebGL context has the texture ready before rendering
-      console.log('[useWebGLCarousel] Waiting for background to be ready...');
-      await background.waitForLoad();
-      console.log('[useWebGLCarousel] Background ready');
+      // Don't block on background loading - let it load asynchronously
+      // The background will appear when ready, but dresses should load independently
+      background.waitForLoad().catch(error => {
+        console.warn('[useWebGLCarousel] Background failed to load:', error);
+        // Non-critical - app continues without background
+      });
 
       let loaded = 0;
       app.loaded = 0;
+      let loadTimeout: NodeJS.Timeout | null = null;
+
+      // Safety timeout: show content even if some images fail to load
+      loadTimeout = setTimeout(() => {
+        console.warn('[useWebGLCarousel] Load timeout - showing content anyway');
+        document.documentElement.classList.remove('loading');
+        document.documentElement.classList.add('loaded');
+        if (canvasRef.current) {
+          canvasRef.current.style.opacity = '1';
+        }
+      }, 10000); // 10 second timeout
 
       mediasImages.forEach(({ image: source }) => {
         const image = new Image();
         image.src = source;
+        
         image.onload = () => {
           loaded += 1;
           app.loaded = loaded;
 
           if (loaded === mediasImages.length) {
+            if (loadTimeout) clearTimeout(loadTimeout);
+            document.documentElement.classList.remove('loading');
+            document.documentElement.classList.add('loaded');
+            if (canvasRef.current) {
+              canvasRef.current.style.opacity = '1';
+            }
+          }
+        };
+        
+        // Handle individual image load failures
+        image.onerror = (error) => {
+          console.error('[useWebGLCarousel] Failed to load dress image:', source, error);
+          loaded += 1; // Count as loaded to prevent blocking
+          app.loaded = loaded;
+          
+          if (loaded === mediasImages.length) {
+            if (loadTimeout) clearTimeout(loadTimeout);
             document.documentElement.classList.remove('loading');
             document.documentElement.classList.add('loaded');
             if (canvasRef.current) {

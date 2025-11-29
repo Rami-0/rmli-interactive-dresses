@@ -78,10 +78,11 @@ export default class BackgroundImage {
       this.imageLoadPromise = Promise.resolve();
     } else {
       // Fallback: Load the image if not preloaded
-      console.log('[BackgroundImage] Loading image...');
-      this.imageLoadPromise = new Promise((resolve) => {
+      console.log('[BackgroundImage] Loading image as fallback...');
+      this.imageLoadPromise = new Promise((resolve, reject) => {
         const image = new Image();
         image.src = backgroundImagePath;
+        
         image.onload = () => {
           texture.image = image;
           this.imageWidth = image.naturalWidth;
@@ -95,6 +96,12 @@ export default class BackgroundImage {
             viewport: this.viewport
           });
           
+          resolve();
+        };
+        
+        image.onerror = (error) => {
+          console.error('[BackgroundImage] Fallback load failed:', error);
+          // Resolve anyway - app should continue without background
           resolve();
         };
       });
