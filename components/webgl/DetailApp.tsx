@@ -2,12 +2,13 @@
 
 import { Renderer, Camera, Transform, Plane } from 'ogl';
 import NormalizeWheel from 'normalize-wheel';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import debounce from 'lodash/debounce';
 
 import { lerp } from '@/lib/utils/math';
 import Column from './Column';
 import Background from './Background';
+import Carousel from '../Carousel';
 
 interface ScrollState {
   ease: number;
@@ -24,6 +25,8 @@ interface DetailAppProps {
 export default function DetailApp({ itemId = '0' }: DetailAppProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [currentSlide, setCurrentSlide] = useState(2); // Start at last column
+  const [totalSlides, setTotalSlides] = useState(3);
   const appRef = useRef<{
     renderer?: Renderer;
     gl?: WebGLRenderingContext | WebGL2RenderingContext;
@@ -39,8 +42,6 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
     maxScroll?: number;
     minScroll?: number;
     columnsData?: Array<{ type: 'left' | 'middle' | 'right'; content: { text: string } }>;
-    carousel?: HTMLDivElement;
-    dots?: HTMLButtonElement[];
     isDown?: boolean;
     start?: number;
     animationFrameId?: number;
@@ -189,6 +190,7 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
     ];
 
     app.columnsData = columnsData;
+    setTotalSlides(columnsData.length);
 
     const columns = columnsData.map(({ type, content }, index) => {
       const column = new Column({
@@ -221,48 +223,6 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
     });
     app.background = background;
 
-    // Create carousel
-    const carousel = document.createElement('div');
-    carousel.className = 'carousel';
-
-    const leftArrow = document.createElement('button');
-    leftArrow.className = 'carousel__arrow carousel__arrow--left';
-    leftArrow.innerHTML = '←';
-    leftArrow.addEventListener('click', () => {
-      const currentIndex = getCurrentColumnIndex();
-      navigateToColumn(currentIndex - 1);
-    });
-
-    const dotsContainer = document.createElement('div');
-    dotsContainer.className = 'carousel__dots';
-
-    const dots: HTMLButtonElement[] = [];
-    for (let i = 0; i < columnsData.length; i++) {
-      const dot = document.createElement('button');
-      dot.className = 'carousel__dot';
-      if (i === columnsData.length - 1) dot.classList.add('carousel__dot--active');
-      dot.setAttribute('data-index', i.toString());
-      dot.addEventListener('click', () => navigateToColumn(i));
-      dotsContainer.appendChild(dot);
-      dots.push(dot);
-    }
-
-    const rightArrow = document.createElement('button');
-    rightArrow.className = 'carousel__arrow carousel__arrow--right';
-    rightArrow.innerHTML = '→';
-    rightArrow.addEventListener('click', () => {
-      const currentIndex = getCurrentColumnIndex();
-      navigateToColumn(currentIndex + 1);
-    });
-
-    carousel.appendChild(leftArrow);
-    carousel.appendChild(dotsContainer);
-    carousel.appendChild(rightArrow);
-
-    document.body.appendChild(carousel);
-    app.carousel = carousel;
-    app.dots = dots;
-
     // Preloader
     setTimeout(() => {
       document.documentElement.classList.remove('loading');
@@ -285,27 +245,15 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
 
       const { width } = app.columns![0];
       scroll.target = width * index;
+      setCurrentSlide(index);
       onCheck();
     };
 
     const updateCarousel = () => {
-      if (!app.carousel || !app.dots || !app.columns) return;
+      if (!app.columns) return;
 
       const currentIndex = getCurrentColumnIndex();
-
-      app.dots.forEach((dot, index) => {
-        if (index === currentIndex) {
-          dot.classList.add('carousel__dot--active');
-        } else {
-          dot.classList.remove('carousel__dot--active');
-        }
-      });
-
-      const leftArrowEl = app.carousel.querySelector('.carousel__arrow--left') as HTMLButtonElement;
-      const rightArrowEl = app.carousel.querySelector('.carousel__arrow--right') as HTMLButtonElement;
-
-      if (leftArrowEl) leftArrowEl.disabled = currentIndex === 0;
-      if (rightArrowEl) rightArrowEl.disabled = currentIndex === app.columns.length - 1;
+      setCurrentSlide(currentIndex);
     };
 
     const onCheck = () => {
@@ -446,10 +394,6 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
           window.cancelAnimationFrame(app.animationFrameId);
         }
 
-        if (app.carousel && app.carousel.parentNode) {
-          app.carousel.parentNode.removeChild(app.carousel);
-        }
-
         if (canvasRef.current && canvasRef.current.parentNode) {
           canvasRef.current.parentNode.removeChild(canvasRef.current);
           canvasRef.current = null;
@@ -465,6 +409,28 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
     };
   }, [itemId]);
 
-  return <div ref={containerRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }} />;
+  const handleCarouselNavigate = (index: number) => {
+    const app = appRef.current;
+    if (!app.columns || app.columns.length === 0) return;
+
+    const { width } = app.columns[0];
+    if (!width || width === 0) return;
+
+    if (app.scroll) {
+      app.scroll.target = width * index;
+    }
+    setCurrentSlide(index);
+  };
+
+  return (
+    <>
+      <div ref={containerRef} style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', zIndex: 0 }} />
+      <Carousel
+        totalSlides={totalSlides}
+        currentIndex={currentSlide}
+        onNavigate={handleCarouselNavigate}
+      />
+    </>
+  );
 }
 

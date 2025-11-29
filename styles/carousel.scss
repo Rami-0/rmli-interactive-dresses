@@ -1,0 +1,164 @@
+@use './utils/variables' as *;
+@use './base/base';
+@use './base/frame';
+@use './base/loader';
+@use './mixins/links';
+
+.carousel {
+  position: fixed;
+  bottom: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  z-index: 1000;
+  padding: 20px 40px;
+  background: rgba(255, 255, 255, 0.1); // More transparent base
+  backdrop-filter: blur(40px) saturate(180%); // Add saturation boost
+  -webkit-backdrop-filter: blur(40px) saturate(180%); // Safari support
+  border-radius: 60px;
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.12), // Darker, softer shadow
+    inset 0 1px 0 rgba(255, 255, 255, 0.8), // Top highlight
+    inset 0 -1px 0 rgba(255, 255, 255, 0.2); // Bottom subtle glow
+  border: 1px solid rgba(255, 255, 255, 0.18); // More subtle border
+  pointer-events: auto;
+
+  &__arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 50px;
+    height: 50px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: $color-gray;
+    border-radius: 50%;
+    pointer-events: auto;
+
+    svg {
+      width: 28px;
+      height: 28px;
+      stroke-width: 2.5;
+    }
+
+    &:hover:not(:disabled) {
+      background: rgba($color-gray, 0.05);
+      transform: scale(1.1);
+    }
+
+    &:active:not(:disabled) {
+      transform: scale(0.95);
+    }
+
+    &:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
+
+    &--left {
+      margin-right: 10px;
+    }
+
+    &--right {
+      margin-left: 10px;
+    }
+  }
+
+  &__dots {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    justify-content: space-between;
+    // width: 200px;
+    padding: 0 20px;
+    pointer-events: auto;
+  }
+
+  &__dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: none;
+    background: rgba($color-gray, 0.2);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    padding: 0;
+    pointer-events: auto;
+
+    &:hover {
+      background: rgba($color-gray, 0.4);
+      transform: scale(1.2);
+    }
+
+    &--active {
+      width: 50px;
+      height: 10px;
+      background: $color-gray;
+      transform: scale(1);
+      border-radius: 10px;
+      &:hover {
+        background: $color-gray;
+        transform: scale(1.1);
+      }
+    }
+  }
+}
+
+@media (max-width: 768px) {
+  .carousel {
+    bottom: 2rem;
+    gap: 1.5rem;
+    padding: 15px 30px;
+    border-radius: 50px;
+
+    &__arrow {
+      width: 40px;
+      height: 40px;
+
+      svg {
+        width: 22px;
+        height: 22px;
+      }
+
+      &--left {
+        margin-right: 5px;
+      }
+
+      &--right {
+        margin-left: 5px;
+      }
+    }
+
+    &__dots {
+      gap: 0.75rem;
+      padding: 0 15px;
+    }
+
+    &__dot {
+      width: 8px;
+      height: 8px;
+
+      &:hover {
+        background: rgba($color-gray, 0.4);
+        transform: scale(1.2);
+      }
+
+      &--active {
+        width: 32px;
+        height: 8px;
+        border-radius: 8px;
+        background: $color-gray;
+
+        &:hover {
+          background: $color-gray;
+          transform: scale(1.05);
+        }
+      }
+    }
+  }
+}
