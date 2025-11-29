@@ -9,6 +9,7 @@ import { lerp } from '@/lib/utils/math';
 import Column from './Column';
 import Background from './Background';
 import Carousel from '../Carousel';
+import { TOUCH_SENSITIVITY } from '@/lib/constants';
 
 interface ScrollState {
   ease: number;
@@ -64,7 +65,7 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
       document.documentElement.classList.remove('no-js');
 
     const scroll: ScrollState = {
-      ease: 0.05,
+      ease: 0.08, // Increased from 0.05 for snappier feel on touch
       current: 0,
       target: 0,
       last: 0,
@@ -290,10 +291,20 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
       if (!app.isDown) return;
 
       const x = 'touches' in event ? event.touches[0].clientX : event.clientX;
-      const distance = ((app.start! - x) * 0.01) as number;
+      
+      // Improved touch sensitivity - increased multiplier from 0.01 to 0.002
+      // This makes dragging feel more natural on touch screens
+      const sensitivity = TOUCH_SENSITIVITY;
+      const distance = (app.start! - x) * sensitivity;
 
       scroll.target = scroll.position! - distance;
       clampScroll();
+      
+      // Prevent default scrolling on horizontal swipe
+      const distanceFromStart = Math.abs(app.start! - x);
+      if (distanceFromStart > 10) {
+        event.preventDefault();
+      }
     };
 
     const onTouchUp = () => {
@@ -317,8 +328,8 @@ export default function DetailApp({ itemId = '0' }: DetailAppProps) {
     window.addEventListener('mousedown', onTouchDown as EventListener);
     window.addEventListener('mousemove', onTouchMove as EventListener);
     window.addEventListener('mouseup', onTouchUp as EventListener);
-    window.addEventListener('touchstart', onTouchDown as EventListener);
-    window.addEventListener('touchmove', onTouchMove as EventListener);
+    window.addEventListener('touchstart', onTouchDown as EventListener, { passive: false });
+    window.addEventListener('touchmove', onTouchMove as EventListener, { passive: false });
     window.addEventListener('touchend', onTouchUp as EventListener);
 
     // Set initial scroll position after columns are created

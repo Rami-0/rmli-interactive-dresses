@@ -9,6 +9,7 @@ import { lerp } from '@/lib/utils/math';
 import { preloadFonts } from '@/lib/utils/fontLoader';
 import Media from '../Media';
 import BackgroundImage from '../BackgroundImage';
+import { TOUCH_SENSITIVITY } from '@/lib/constants';
 
 interface ScrollState {
   ease: number;
@@ -112,7 +113,7 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
       document.documentElement.classList.remove('no-js');
 
       const scroll: ScrollState = {
-        ease: 0.05,
+        ease: 0.08, // Increased from 0.05 for snappier feel on touch
         current: 0,
         target: 0,
         last: 0,
@@ -275,9 +276,23 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
         if (!app.isDown) return;
 
         const x = 'touches' in event ? event.touches[0].clientX : event.clientX;
-        const distance = ((app.start! - x) * 0.01) as number;
+        const y = 'touches' in event ? event.touches[0].clientY : event.clientY;
+        
+        // Calculate horizontal distance with better sensitivity for touch
+        const distanceX = app.start! - x;
+        const distanceY = Math.abs(app.startY! - y);
+        
+        // Improved touch sensitivity - increased multiplier from 0.01 to 0.002
+        // This makes dragging feel more natural on touch screens
+        const sensitivity = TOUCH_SENSITIVITY;
+        const distance = distanceX * sensitivity;
 
         scroll.target = scroll.position! + distance;
+        
+        // Prevent default scrolling if horizontal swipe is dominant
+        if (Math.abs(distanceX) > distanceY && Math.abs(distanceX) > 10) {
+          event.preventDefault();
+        }
       };
 
       const handleHover = throttle((clientX: number, clientY: number) => {

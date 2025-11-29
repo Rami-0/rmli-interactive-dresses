@@ -1,0 +1,1 @@
+export const TOUCH_SENSITIVITY = 0.08;
