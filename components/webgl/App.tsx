@@ -9,7 +9,7 @@ import debounce from 'lodash/debounce';
 import { lerp } from '@/lib/utils/math';
 import { preloadFonts } from '@/lib/utils/fontLoader';
 import Media from './Media';
-import Background from './Background';
+import BackgroundImage from './BackgroundImage';
 
 // Image imports - using public paths
 const Image1 = '/images/1.jpg';
@@ -43,7 +43,7 @@ export default function App() {
     scene?: Transform;
     planeGeometry?: Plane;
     medias?: Media[];
-    background?: Background;
+    background?: BackgroundImage;
     scroll?: ScrollState;
     direction?: 'left' | 'right';
     screen?: { width: number; height: number };
@@ -182,6 +182,10 @@ export default function App() {
           })
         );
       }
+
+      if (app.background) {
+        app.background.onResize(viewport);
+      }
     };
 
     onResize();
@@ -250,8 +254,8 @@ export default function App() {
 
     app.medias = medias;
 
-    // Create background
-    const background = new Background({
+    // Create background image
+    const background = new BackgroundImage({
       gl,
       scene,
       viewport: app.viewport!,
