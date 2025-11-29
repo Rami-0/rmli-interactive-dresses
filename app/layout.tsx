@@ -16,6 +16,7 @@ export default function RootLayout({
   return (
     <html lang="en" className="no-js loading">
       <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
         <link rel="shortcut icon" href="/favicon.ico" />
         <link rel="stylesheet" href="https://use.typekit.net/zvj1jsw.css" />
       </head>

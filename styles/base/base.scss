@@ -15,7 +15,7 @@
 html {
   background: $color-background;
   color: $color-gray;
-  font-size: calc(100vw / 1920 * 10);
+  font-size: 16px; // Standard root font-size (1rem = 16px)
   height: 100%;
   left: 0;
   position: fixed;

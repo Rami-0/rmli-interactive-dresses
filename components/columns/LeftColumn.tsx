@@ -21,7 +21,7 @@ export function LeftColumn({ dress, isActive, onClick }: LeftColumnProps) {
             src={`/${dress.image}`}
             alt={dress.name}
             width={500}
-            height={800}
+            height={1000}
             className="dress-image"
             priority
           />

@@ -6,7 +6,7 @@
 
 .carousel {
   position: fixed;
-  bottom: 3rem;
+  bottom: 1.8rem;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -14,7 +14,7 @@
   justify-content: center;
   gap: 2rem;
   z-index: 1000;
-  padding: 6px 40px;
+  padding: 0.4rem 2.5rem;
   background: rgba(255, 255, 255, 0.1); // More transparent base
   backdrop-filter: blur(40px) saturate(180%); // Add saturation boost
   -webkit-backdrop-filter: blur(40px) saturate(180%); // Safari support
@@ -111,11 +111,10 @@
 
 @media (max-width: 768px) {
   .carousel {
-    bottom: 2rem;
+    bottom: 1.2rem;
     gap: 1.5rem;
-    padding: 15px 30px;
+    padding: 0.9rem 1.8rem;
     border-radius: 50px;
-    margin-bottom: 4rem;
 
     &__arrow {
       width: 40px;
