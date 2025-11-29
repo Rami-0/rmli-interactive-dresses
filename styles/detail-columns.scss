@@ -1,0 +1,510 @@
+@use './utils/variables' as *;
+
+// ============================================
+// CONTAINER
+// ============================================
+.detail-columns-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  perspective: 2500px;
+  z-index: 10;
+  overflow: hidden;
+  gap: 4rem;
+  padding: 2rem;
+  background: #fafafa;
+  touch-action: pan-y;
+  user-select: none;
+  
+  // PERFORMANCE: Hide initially to prevent FOUC (Flash of Unstyled Content)
+  &:not(.initialized) .detail-column {
+    opacity: 0;
+  }
+  
+  // PERFORMANCE: Smooth reveal with GPU acceleration
+  &.initialized .detail-column {
+    opacity: 1;
+    transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+
+  @media (max-width: 1400px) {
+    gap: 3rem;
+  }
+
+  @media (max-width: 1200px) {
+    gap: 2rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0;
+    gap: 0;
+    touch-action: none; // Full control for custom gestures
+    perspective: none; // Disable 3D on mobile for performance
+    
+    &.initialized .detail-column {
+      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+  }
+}
+
+// ============================================
+// COLUMNS - BASE STRUCTURE
+// ============================================
+.detail-column {
+  position: relative;
+  width: 24vw;
+  max-width: 420px;
+  height: 70vh;
+  max-height: 750px;
+  transform-style: preserve-3d;
+  cursor: pointer;
+  
+  // PERFORMANCE: Hint browser about transforms for GPU acceleration
+  will-change: transform, opacity;
+  // PERFORMANCE: Force GPU layer
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+
+  @media (max-width: 1400px) {
+    width: 26vw;
+  }
+
+  @media (max-width: 1200px) {
+    width: 28vw;
+  }
+
+  @media (max-width: 768px) {
+    position: absolute;
+    width: 100vw;              // Full width
+    max-width: none;
+    height: 100vh;             // Full height
+    left: 50%;
+    top: 50%;
+    // MOBILE: Default hidden state with correct positioning
+    transform: translate(-50%, -50%) scale(0);
+  }
+
+  // ============================================
+  // INACTIVE STATE (Desktop 3D Effects)
+  // ============================================
+  &:not(.active) {
+    transform: scale(0.65) rotateY(20deg) translateZ(-200px);
+    opacity: 0.25;
+    filter: brightness(0.5) blur(3px);
+    z-index: 1;
+    pointer-events: auto;
+
+    @media (max-width: 768px) {
+      opacity: 0;
+      transform: translate(-50%, -50%) scale(0);
+      pointer-events: none;
+      visibility: hidden;
+    }
+
+    // DESKTOP: Hover interaction with smooth transition
+    &:hover {
+      @media (min-width: 769px) {
+        transform: scale(0.72) rotateY(15deg) translateZ(-120px);
+        opacity: 0.45;
+        filter: brightness(0.7) blur(1.5px);
+      }
+    }
+  }
+
+  // ============================================
+  // COLUMN-SPECIFIC 3D ROTATIONS (Desktop)
+  // ============================================
+  &--left:not(.active) {
+    @media (min-width: 769px) {
+      transform: scale(0.65) rotateY(25deg) translateX(80px) translateZ(-200px);
+    }
+  }
+
+  &--right:not(.active) {
+    @media (min-width: 769px) {
+      transform: scale(0.65) rotateY(-25deg) translateX(-80px) translateZ(-200px);
+    }
+  }
+
+  // ============================================
+  // ACTIVE STATE (Focused Column)
+  // ============================================
+  &.active {
+    transform: scale(1.1) rotateY(0deg) translateZ(180px);
+    opacity: 1;
+    filter: brightness(1) blur(0px);
+    z-index: 10;
+    pointer-events: auto;
+
+    @media (max-width: 768px) {
+      transform: translate(-50%, -50%) scale(1) rotateY(0deg);
+      visibility: visible;
+    }
+  }
+}
+
+// ============================================
+// COLUMN CONTENT - SHARED LAYOUT
+// ============================================
+.column-content {
+  width: 100%;
+  height: 100%;
+  border-radius: 16px;
+  padding: 3rem;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  @media (max-width: 1200px) {
+    padding: 2.5rem;
+  }
+
+  @media (max-width: 1024px) {
+    padding: 2rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 2.5rem 2rem;
+  }
+}
+
+// ============================================
+// LEFT COLUMN - DRESS IMAGE
+// ============================================
+.detail-column--left {
+  .dress-image-container {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+
+    @media (max-width: 768px) {
+      padding: 1rem;
+    }
+  }
+
+  .dress-image {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    // PERFORMANCE: Image rendering optimization
+    image-rendering: -webkit-optimize-contrast;
+    image-rendering: crisp-edges;
+  }
+}
+
+// ============================================
+// MIDDLE COLUMN - METADATA (RTL Content)
+// ============================================
+.detail-column--middle {
+  .column-content {
+    overflow-y: auto;
+    // PERFORMANCE: Optimize scroll performance (Safari/iOS)
+    -webkit-overflow-scrolling: touch;
+
+    // Custom scrollbar styling
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 10px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      
+      &:hover {
+        background: rgba(0, 0, 0, 0.3);
+      }
+    }
+  }
+
+  .metadata-container {
+    direction: rtl;
+    text-align: center;
+  }
+
+  .metadata-section {
+    margin-bottom: 3rem;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    @media (max-width: 768px) {
+      margin-bottom: 2.5rem;
+    }
+  }
+
+  // TYPOGRAPHY: Enhanced label styling
+  .metadata-label {
+    font-size: 1.1rem;
+    color: #4a5568;
+    margin-bottom: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1.5;
+
+    @media (max-width: 768px) {
+      font-size: 1rem;
+    }
+  }
+
+  // TYPOGRAPHY: Enhanced region title
+  .region-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+    color: #000000;
+    margin-bottom: 1.5rem;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    // PERFORMANCE: Text rendering optimization
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+
+    @media (max-width: 1200px) {
+      font-size: 2.1rem;
+    }
+
+    @media (max-width: 768px) {
+      font-size: 1.9rem;
+    }
+  }
+
+  .region-map {
+    margin: 2rem auto;
+    max-width: 280px;
+
+    .map-image {
+      width: 100%;
+      height: auto;
+      border-radius: 14px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    }
+  }
+
+  // TYPOGRAPHY: Enhanced section titles
+  .section-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #000000;
+    margin-bottom: 1.25rem;
+    letter-spacing: -0.01em;
+    line-height: 1.4;
+
+    @media (max-width: 768px) {
+      font-size: 1.15rem;
+    }
+  }
+
+  // Enhanced color circles with better shadows
+  .color-circles {
+    display: flex;
+    gap: 1.25rem;
+    justify-content: center;
+    align-items: center;
+  }
+
+  .color-circle {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+    border: 3.5px solid white;
+    transition: transform 0.3s ease;
+
+    &:hover {
+      transform: scale(1.1);
+    }
+
+    @media (max-width: 768px) {
+      width: 56px;
+      height: 56px;
+    }
+  }
+
+  // Enhanced fabric tags
+  .fabric-tags {
+    display: flex;
+    gap: 1.25rem;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .fabric-tag {
+    background: #ffffff;
+    border: 2.5px solid #000000;
+    border-radius: 32px;
+    padding: 0.8rem 1.8rem;
+    font-size: 1.1rem;
+    color: #000000;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    transition: all 0.3s ease;
+
+    &:hover {
+      background: #000000;
+      color: #ffffff;
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+    }
+
+    @media (max-width: 768px) {
+      font-size: 1rem;
+      padding: 0.7rem 1.5rem;
+    }
+  }
+
+  // TYPOGRAPHY: Enhanced dress name
+  .dress-name {
+    font-size: 2.8rem;
+    font-weight: 900;
+    color: #000000;
+    margin-top: 0.75rem;
+    line-height: 1.25;
+    letter-spacing: -0.03em;
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+
+    @media (max-width: 1200px) {
+      font-size: 2.3rem;
+    }
+
+    @media (max-width: 768px) {
+      font-size: 2rem;
+    }
+  }
+}
+
+// ============================================
+// RIGHT COLUMN - DESCRIPTIVE TEXT (RTL)
+// ============================================
+.detail-column--right {
+  .column-content {
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 3.5rem;
+    // PERFORMANCE: Optimize scroll performance (Safari/iOS)
+    -webkit-overflow-scrolling: touch;
+
+    @media (max-width: 1200px) {
+      padding: 3rem;
+    }
+
+    // MOBILE: Optimized for phone screens
+    @media (max-width: 768px) {
+      padding: 4rem 3rem;
+      justify-content: flex-start; // Align to top, not center
+      // Subtle background for better text contrast
+      background: linear-gradient(135deg, #ffffff 0%, #f8f8f8 100%);
+      border-radius: 0; // Remove border radius on mobile
+      min-height: 100%; // Ensure full height
+    }
+
+    // Custom scrollbar styling
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+
+    &::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.03);
+      border-radius: 10px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+      background: rgba(0, 0, 0, 0.2);
+      border-radius: 10px;
+      
+      &:hover {
+        background: rgba(0, 0, 0, 0.3);
+      }
+    }
+  }
+
+  .text-container {
+    direction: rtl;
+    text-align: right;
+    // PERFORMANCE: Better text rendering
+    text-rendering: optimizeLegibility;
+    width: 100%;
+    
+    // MOBILE: Enhanced visibility and proper spacing
+    @media (max-width: 768px) {
+      padding: 2rem 0;
+    }
+  }
+
+  // TYPOGRAPHY: Enhanced paragraph styling with better readability
+  .paragraph {
+    font-size: 1.25rem;
+    line-height: 2.2;
+    color: #1a1a1a;
+    margin-bottom: 2.25rem;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    // TYPOGRAPHY: Improved text rendering
+    text-rendering: optimizeLegibility;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    // TYPOGRAPHY: Hyphens for better RTL text flow
+    hyphens: auto;
+    -webkit-hyphens: auto;
+    word-spacing: 0.05em;
+
+    &:last-child {
+      margin-bottom: 0;
+    }
+
+    // TYPOGRAPHY: First paragraph emphasis
+    &:first-child {
+      font-size: 1.35rem;
+      font-weight: 600;
+      color: #000000;
+      line-height: 2.1;
+    }
+
+    @media (max-width: 1200px) {
+      font-size: 1.15rem;
+      line-height: 2.1;
+      
+      &:first-child {
+        font-size: 1.25rem;
+      }
+    }
+
+    // MOBILE: Enhanced visibility and readability
+    @media (max-width: 768px) {
+      font-size: 8rem;           // Much larger for better readability
+      line-height: 2.1;            // Tighter for better use of space
+      margin-bottom: 3rem;         // Better separation between paragraphs
+      color: #000000;              // Pure black for maximum contrast
+      font-weight: 600;            // Bolder for better visibility
+      letter-spacing: 0.015em;     // Optimized spacing
+      word-spacing: 0.05em;        // Better word separation
+      text-align: justify;         // Justified for better appearance
+      text-align-last: right;      // Last line aligned right (RTL)
+      
+      &:first-child {
+        font-size: 10rem;        // Even larger for emphasis
+        font-weight: 700;          // Extra bold
+        color: #000000;
+        line-height: 2;
+        margin-bottom: 3.5rem;     // More space after first paragraph
+      }
+    }
+  }
+}
