@@ -3,7 +3,6 @@ import { useRouter } from 'next/navigation';
 import { Renderer, Camera, Transform, Plane } from 'ogl';
 import NormalizeWheel from 'normalize-wheel';
 import debounce from 'lodash/debounce';
-import throttle from 'lodash/throttle';
 
 import { lerp } from '@/lib/utils/math';
 import { preloadFonts } from '@/lib/utils/fontLoader';
@@ -27,14 +26,12 @@ interface MediaImage {
 
 interface UseWebGLCarouselProps {
   mediasImages: MediaImage[];
-  onHover?: (mediaItem: Media | null) => void;
   onSlideChange?: (index: number) => void;
 }
 
-export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWebGLCarouselProps) {
+export function useWebGLCarousel({ mediasImages, onSlideChange }: UseWebGLCarouselProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const onHoverRef = useRef(onHover);
   const onSlideChangeRef = useRef(onSlideChange);
   const appRef = useRef<{
     renderer?: Renderer;
@@ -56,11 +53,6 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
     animationFrameId?: number;
   }>({});
   const router = useRouter();
-
-  // Keep onHover ref up to date without causing re-renders
-  useEffect(() => {
-    onHoverRef.current = onHover;
-  }, [onHover]);
 
   // Keep onSlideChange ref up to date
   useEffect(() => {
@@ -111,6 +103,19 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
       }
 
       document.documentElement.classList.remove('no-js');
+
+      // CRITICAL: Preload background image BEFORE initializing WebGL
+      // This prevents context loss on mobile devices by ensuring the 
+      // large background image is cached before GPU resources are allocated
+      console.log('[useWebGLCarousel] Preloading background image...');
+      let preloadedBackgroundImage: HTMLImageElement | undefined;
+      try {
+        preloadedBackgroundImage = await BackgroundImage.preloadImage();
+        console.log('[useWebGLCarousel] Background image preloaded successfully');
+      } catch (error) {
+        console.error('[useWebGLCarousel] Failed to preload background image:', error);
+        // Continue anyway - BackgroundImage will fallback to loading it
+      }
 
       const scroll: ScrollState = {
         ease: 0.08, // Increased from 0.05 for snappier feel on touch
@@ -227,8 +232,15 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
         gl,
         scene,
         viewport: app.viewport!,
+        preloadedImage: preloadedBackgroundImage,
       });
       app.background = background;
+
+      // CRITICAL: Wait for background image to be fully loaded
+      // This ensures the WebGL context has the texture ready before rendering
+      console.log('[useWebGLCarousel] Waiting for background to be ready...');
+      await background.waitForLoad();
+      console.log('[useWebGLCarousel] Background ready');
 
       let loaded = 0;
       app.loaded = 0;
@@ -295,28 +307,6 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
         }
       };
 
-      const handleHover = throttle((clientX: number, clientY: number) => {
-        if (!app.medias || !app.gl?.canvas) return;
-
-        const rect = (app.gl.canvas as HTMLCanvasElement).getBoundingClientRect();
-        const x = ((clientX - rect.left) / rect.width) * 2 - 1;
-        const y = -(((clientY - rect.top) / rect.height) * 2 - 1);
-
-        for (let i = app.medias.length - 1; i >= 0; i--) {
-          const media = app.medias[i];
-          if (media.checkIntersection(x, y)) {
-            if (onHoverRef.current) {
-              onHoverRef.current(media);
-            }
-            return;
-          }
-        }
-        
-        if (onHoverRef.current) {
-          onHoverRef.current(null);
-        }
-      }, 50); // Throttle to max 20 times per second
-
       const handleClick = (clientX: number, clientY: number) => {
         if (!app.medias || !app.gl?.canvas) return;
 
@@ -332,12 +322,6 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
             }
             break;
           }
-        }
-      };
-
-      const onMouseMove = (event: MouseEvent) => {
-        if (!app.isDown) {
-          handleHover(event.clientX, event.clientY);
         }
       };
 
@@ -372,7 +356,6 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
       window.addEventListener('mousewheel', onWheel as EventListener);
       window.addEventListener('wheel', onWheel);
       window.addEventListener('mousedown', onTouchDown as EventListener);
-      window.addEventListener('mousemove', onMouseMove as EventListener);
       window.addEventListener('mouseup', onTouchUp as EventListener);
       window.addEventListener('touchstart', onTouchDown as EventListener);
       window.addEventListener('touchmove', onTouchMove as EventListener);
@@ -397,8 +380,11 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
           // Track current slide during animation for smooth carousel indicator updates
           const { width } = app.medias[0];
           if (width) {
-            const currentItemIndex = Math.round(Math.abs(scroll.current) / width);
-            const actualIndex = currentItemIndex % (mediasImages.length / 2);
+            // Don't use Math.abs() - preserve sign for proper modulo calculation
+            const currentItemIndex = Math.round(scroll.current / width);
+            // Use proper modulo that handles negative numbers
+            const dressCount = mediasImages.length / 2;
+            const actualIndex = ((currentItemIndex % dressCount) + dressCount) % dressCount;
             
             // Only notify if the index actually changed
             if (actualIndex !== lastReportedIndex) {
@@ -431,7 +417,6 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
         window.removeEventListener('mousewheel', onWheel as EventListener);
         window.removeEventListener('wheel', onWheel);
         window.removeEventListener('mousedown', onTouchDown as EventListener);
-        window.removeEventListener('mousemove', onMouseMove as EventListener);
         window.removeEventListener('mouseup', onTouchUp as EventListener);
         window.removeEventListener('touchstart', onTouchDown as EventListener);
         window.removeEventListener('touchmove', onTouchMove as EventListener);
@@ -482,7 +467,8 @@ export function useWebGLCarousel({ mediasImages, onHover, onSlideChange }: UseWe
     }
 
     const { width } = app.medias[0];
-    const currentItemIndex = Math.round(Math.abs(app.scroll.current || 0) / width);
+    // Don't use Math.abs() - we need to preserve negative values for proper infinite scroll
+    const currentItemIndex = Math.round((app.scroll.current || 0) / width);
     
     return { currentItemIndex, width };
   }, []);

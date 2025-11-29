@@ -5,9 +5,6 @@ import vertex from '@/shaders/image-vertex.glsl';
 
 import { map } from '@/lib/utils/math';
 
-import Number from './Number';
-import Title from './Title';
-
 interface MediaProps {
   geometry: any;
   gl: WebGLRenderingContext | WebGL2RenderingContext;
@@ -37,8 +34,6 @@ export default class Media {
   onClick?: (media: Media) => void;
   program!: Program;
   plane!: Mesh;
-  number!: Number;
-  title!: Title;
   speed: number = 0;
   isBefore: boolean = false;
   isAfter: boolean = false;
@@ -67,7 +62,6 @@ export default class Media {
 
     this.createShader();
     this.createMesh();
-    this.createTitle();
 
     this.onResize();
   }
@@ -110,22 +104,6 @@ export default class Media {
     });
 
     this.plane.setParent(this.scene);
-  }
-
-  createTitle() {
-    this.number = new Number({
-      gl: this.gl,
-      plane: this.plane,
-      renderer: this.renderer,
-      text: this.index % (this.length / 2),
-    });
-
-    this.title = new Title({
-      gl: this.gl,
-      plane: this.plane,
-      renderer: this.renderer,
-      text: this.text,
-    });
   }
 
   update(scroll: { current: number; last: number; target: number }, direction: 'left' | 'right') {

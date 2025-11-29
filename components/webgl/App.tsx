@@ -3,12 +3,11 @@
 import { useState, useMemo, useCallback } from 'react';
 import { characterData } from '@/lib/constants/characters';
 import { useWebGLCarousel } from './hooks/useWebGLCarousel';
-import HoverTooltip from '../HoverTooltip';
 import Carousel from '../Carousel';
-import Media from './Media';
+import { DressLabel } from '../DressLabel';
+import '@/styles/dress-label.scss';
 
 export default function App() {
-  const [hoveredItem, setHoveredItem] = useState<string | null>(null);
   const [currentSlide, setCurrentSlide] = useState(0);
 
   // Prepare dress data for the carousel - duplicate for infinite scroll
@@ -23,15 +22,6 @@ export default function App() {
     return [...dresses, ...dresses];
   }, []);
 
-  // Memoize the hover handler to prevent re-renders
-  const handleHover = useCallback((media: Media | null) => {
-    if (media) {
-      setHoveredItem(media.text);
-    } else {
-      setHoveredItem(null);
-    }
-  }, []);
-
   // Handle slide changes from scrolling
   const handleSlideChange = useCallback((index: number) => {
     setCurrentSlide(index);
@@ -39,42 +29,41 @@ export default function App() {
 
   const { containerRef, navigateToSlide, getScrollInfo } = useWebGLCarousel({ 
     mediasImages, 
-    onHover: handleHover,
     onSlideChange: handleSlideChange
   });
 
   // Handle navigation from carousel controls
   const handleCarouselNavigate = useCallback((targetIndex: number) => {
-    // Find the closest occurrence of the target dress in the duplicated array
     const { currentItemIndex, width } = getScrollInfo();
     
     if (!width) return;
     
-    // Find all occurrences of the target index in the duplicated array
     const dressCount = characterData.length;
-    const occurrences: number[] = [];
     
-    for (let i = 0; i < mediasImages.length; i++) {
-      if (i % dressCount === targetIndex) {
-        occurrences.push(i);
-      }
+    // Get current logical position (which dress we're showing, 0 to dressCount-1)
+    const currentLogicalIndex = currentItemIndex % dressCount;
+    
+    // Calculate the shortest circular distance to target
+    const forwardDistance = (targetIndex - currentLogicalIndex + dressCount) % dressCount;
+    const backwardDistance = (currentLogicalIndex - targetIndex + dressCount) % dressCount;
+    
+    // If already on target, do nothing
+    if (forwardDistance === 0 && backwardDistance === 0) {
+      return;
     }
     
-    // Find the closest occurrence to current position
-    let closestIndex = occurrences[0];
-    let minDistance = Math.abs(currentItemIndex - closestIndex);
+    // Move in the shortest direction by adjusting scroll.target relatively
+    // Don't set absolute position - let the infinite scroll handle wrapping
+    if (forwardDistance <= backwardDistance) {
+      // Move forward (right)
+      navigateToSlide(currentItemIndex + forwardDistance);
+    } else {
+      // Move backward (left)
+      navigateToSlide(currentItemIndex - backwardDistance);
+    }
     
-    occurrences.forEach(index => {
-      const distance = Math.abs(currentItemIndex - index);
-      if (distance < minDistance) {
-        minDistance = distance;
-        closestIndex = index;
-      }
-    });
-    
-    navigateToSlide(closestIndex);
     setCurrentSlide(targetIndex);
-  }, [navigateToSlide, getScrollInfo, mediasImages.length]);
+  }, [navigateToSlide, getScrollInfo]);
 
   return (
     <>
@@ -90,7 +79,7 @@ export default function App() {
           background: 'linear-gradient(135deg, #f5f5f0 0%, #e8e6d9 50%, #d4d2c5 100%)'
         }} 
       />
-      <HoverTooltip text={hoveredItem} />
+      <DressLabel name={characterData[currentSlide]?.name || ''} />
       <Carousel
         totalSlides={characterData.length}
         currentIndex={currentSlide}

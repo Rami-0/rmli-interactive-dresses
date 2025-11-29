@@ -23,8 +23,41 @@ export default class BackgroundImage {
   imageWidth: number = 0;
   imageHeight: number = 0;
   imageAspectRatio: number = 0;
+  private imageLoadPromise: Promise<void>;
 
-  constructor({ gl, scene, viewport }: { gl: WebGLRenderingContext | WebGL2RenderingContext; scene: any; viewport: { width: number; height: number } }) {
+  /**
+   * Preload background image before initializing WebGL context
+   * This prevents context loss on mobile devices
+   */
+  static async preloadImage(): Promise<HTMLImageElement> {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.src = backgroundImagePath;
+      
+      console.log('[BackgroundImage] Starting preload...');
+      
+      image.onload = () => {
+        console.log('[BackgroundImage] Preload complete:', {
+          width: image.naturalWidth,
+          height: image.naturalHeight,
+          src: backgroundImagePath
+        });
+        resolve(image);
+      };
+      
+      image.onerror = (error) => {
+        console.error('[BackgroundImage] Preload failed:', error);
+        reject(error);
+      };
+    });
+  }
+
+  constructor({ gl, scene, viewport, preloadedImage }: { 
+    gl: WebGLRenderingContext | WebGL2RenderingContext; 
+    scene: any; 
+    viewport: { width: number; height: number };
+    preloadedImage?: HTMLImageElement;
+  }) {
     this.gl = gl;
     this.scene = scene;
     this.viewport = viewport;
@@ -34,31 +67,38 @@ export default class BackgroundImage {
       generateMipmaps: false,
     });
 
-    // Load the background image
-    const image = new Image();
-    image.src = backgroundImagePath;
-    image.onload = () => {
-      texture.image = image;
-      this.imageWidth = image.naturalWidth;
-      this.imageHeight = image.naturalHeight;
+    // Initialize image loading
+    if (preloadedImage) {
+      // Use preloaded image immediately
+      console.log('[BackgroundImage] Using preloaded image');
+      texture.image = preloadedImage;
+      this.imageWidth = preloadedImage.naturalWidth;
+      this.imageHeight = preloadedImage.naturalHeight;
       this.imageAspectRatio = this.imageWidth / this.imageHeight;
-      
-      console.log('[BackgroundImage] Image loaded:', {
-        width: this.imageWidth,
-        height: this.imageHeight,
-        aspectRatio: this.imageAspectRatio,
-        viewport: this.viewport
+      this.imageLoadPromise = Promise.resolve();
+    } else {
+      // Fallback: Load the image if not preloaded
+      console.log('[BackgroundImage] Loading image...');
+      this.imageLoadPromise = new Promise((resolve) => {
+        const image = new Image();
+        image.src = backgroundImagePath;
+        image.onload = () => {
+          texture.image = image;
+          this.imageWidth = image.naturalWidth;
+          this.imageHeight = image.naturalHeight;
+          this.imageAspectRatio = this.imageWidth / this.imageHeight;
+          
+          console.log('[BackgroundImage] Image loaded:', {
+            width: this.imageWidth,
+            height: this.imageHeight,
+            aspectRatio: this.imageAspectRatio,
+            viewport: this.viewport
+          });
+          
+          resolve();
+        };
       });
-      
-      // Update uniforms with image dimensions for all meshes
-      if (this.program) {
-        this.program.uniforms.uImageSizes.value = [this.imageWidth, this.imageHeight];
-        console.log('[BackgroundImage] Updated uImageSizes uniform');
-      }
-      
-      // Recalculate positions after image loads
-      this.resize();
-    };
+    }
 
     // Create geometry - a plane for each copy
     const geometry = new Plane(this.gl, {
@@ -72,7 +112,7 @@ export default class BackgroundImage {
       fragment,
       uniforms: {
         tMap: { value: texture },
-        uImageSizes: { value: [0, 0] },
+        uImageSizes: { value: [this.imageWidth, this.imageHeight] },
         uPlaneSizes: { value: [viewport.width, viewport.height] },
       },
       depthTest: false,
@@ -99,7 +139,21 @@ export default class BackgroundImage {
       this.scene.addChild(mesh);
     }
     
-    this.resize();
+    // Wait for image to load before initial resize
+    this.imageLoadPromise.then(() => {
+      if (this.program) {
+        this.program.uniforms.uImageSizes.value = [this.imageWidth, this.imageHeight];
+        console.log('[BackgroundImage] Updated uImageSizes uniform');
+      }
+      this.resize();
+    });
+  }
+
+  /**
+   * Wait for background image to be fully loaded
+   */
+  async waitForLoad(): Promise<void> {
+    return this.imageLoadPromise;
   }
 
   resize() {
