@@ -5,7 +5,7 @@ import vertex from '@/shaders/background-image-vertex.glsl';
 
 const backgroundImagePath = '/images/main-background.png';
 // TODO: Change this number to adjust scroll intensity (1.0 = same speed as items)
-const scrollSpeed = 0.5;
+const scrollSpeed = 0.6;
 
 interface BackgroundMesh extends Mesh {
   x: number;
@@ -43,9 +43,17 @@ export default class BackgroundImage {
       this.imageHeight = image.naturalHeight;
       this.imageAspectRatio = this.imageWidth / this.imageHeight;
       
+      console.log('[BackgroundImage] Image loaded:', {
+        width: this.imageWidth,
+        height: this.imageHeight,
+        aspectRatio: this.imageAspectRatio,
+        viewport: this.viewport
+      });
+      
       // Update uniforms with image dimensions for all meshes
       if (this.program) {
         this.program.uniforms.uImageSizes.value = [this.imageWidth, this.imageHeight];
+        console.log('[BackgroundImage] Updated uImageSizes uniform');
       }
       
       // Recalculate positions after image loads
@@ -64,7 +72,7 @@ export default class BackgroundImage {
       fragment,
       uniforms: {
         tMap: { value: texture },
-        uImageSizes: { value: [0, 0] }, // Will be updated when image loads
+        uImageSizes: { value: [0, 0] },
         uPlaneSizes: { value: [viewport.width, viewport.height] },
       },
       depthTest: false,
@@ -72,7 +80,7 @@ export default class BackgroundImage {
       transparent: false,
     });
 
-    // Create 3 copies of the background (dubl-1, dubl-2, dubl-3)
+    // Create 3 copies of the background
     this.meshes = [];
     
     for (let i = 0; i < 3; i++) {
@@ -81,10 +89,9 @@ export default class BackgroundImage {
         program: this.program,
       }) as BackgroundMesh;
 
-      // Position the plane behind everything (further back in Z)
+      // Position further back so it doesn't overlap media items
+      // z: -10 means it's 30 units from camera (camera at z:20)
       mesh.position.z = -10;
-      
-      // Initial x position will be set in resize()
       mesh.x = 0;
       mesh.xExtra = 0;
 
@@ -92,79 +99,86 @@ export default class BackgroundImage {
       this.scene.addChild(mesh);
     }
     
-    // Scale to cover the entire viewport (full screen)
     this.resize();
   }
 
   resize() {
-    // Calculate scale to fill screen height while maintaining aspect ratio
-    // The width will be determined by the image aspect ratio
-    const scaleY = this.viewport.height;
-    const scaleX = this.viewport.height * (this.imageAspectRatio || 16/9); // Default aspect if image not loaded
+    // CRITICAL FIX: Perspective scaling compensation
+    // Camera is at z:20, background is at z:-10, distance = 30 units
+    // Media items are at z:~0, distance = 20 units
+    // Scale factor = 30 / 20 = 1.5x to compensate for perspective
     
-    // Calculate the width of one background image in viewport units
+    const cameraZ = 20; // From App.tsx
+    const backgroundZ = -10;
+    const distance = cameraZ - backgroundZ; // 30
+    const referenceDistance = cameraZ; // 20 (distance to z:0 plane)
+    const perspectiveScale = distance / referenceDistance; // 1.5
+    
+    // Reduce multiplier to show image at better quality without stretching
+    // For 4096×2136 image, using 3x to show more content while preserving detail
+    const widthMultiplier = 2.1;
+    const scaleX = this.viewport.width * perspectiveScale * widthMultiplier;
+    const scaleY = this.viewport.height * perspectiveScale;
+    
+    const planeAspect = scaleX / scaleY;
+    const imageAspect = this.imageWidth && this.imageHeight ? this.imageWidth / this.imageHeight : 0;
+    
+    console.log('[BackgroundImage] Resize:', {
+      viewport: this.viewport,
+      perspectiveScale,
+      widthMultiplier,
+      planeSize: [scaleX, scaleY],
+      planeAspect: planeAspect,
+      imageSize: [this.imageWidth, this.imageHeight],
+      imageAspect: imageAspect,
+      widthRatio: imageAspect / planeAspect,
+      strategy: 'Reduced multiplier for better detail'
+    });
+    
     const backgroundWidth = scaleX;
     
-    // Position the 3 copies side by side with no gaps
-    // Each mesh center is positioned exactly one backgroundWidth apart
-    // dubl-1 at -backgroundWidth, dubl-2 at 0, dubl-3 at +backgroundWidth
     this.meshes.forEach((mesh, index) => {
       mesh.scale.x = scaleX;
       mesh.scale.y = scaleY;
       
-      // Position: -1, 0, +1 (relative to center)
-      // Each mesh center is positioned exactly one backgroundWidth apart
-      // This ensures edges touch: mesh at -width touches mesh at 0, etc.
+      // Position planes side by side for infinite scrolling
       const offset = (index - 1) * backgroundWidth;
       mesh.x = offset;
-      // Update position including any extra offset from swapping
       mesh.position.x = offset + mesh.xExtra;
-      mesh.position.y = 0; // Center vertically
+      mesh.position.y = 0;
     });
     
-    // Update plane sizes uniform
+    // Update shader uniforms
     if (this.program && this.meshes.length > 0) {
-      this.program.uniforms.uPlaneSizes.value = [this.meshes[0].scale.x, this.meshes[0].scale.y];
+      this.program.uniforms.uPlaneSizes.value = [scaleX, scaleY];
     }
   }
 
   update(scroll: { current: number; last: number }, direction: 'left' | 'right') {
     if (!this.program || this.meshes.length === 0) return;
     
-    // Calculate background width in viewport units
     const backgroundWidth = this.meshes[0].scale.x;
-    const viewportOffset = this.viewport.width * 0.5;
+    // Increase buffer to 2x viewport width to reduce snappy transitions
+    const viewportOffset = this.viewport.width * 2;
     const halfWidth = backgroundWidth * 0.5;
     
-    // Update position of each mesh based on scroll (with scrollSpeed multiplier)
     this.meshes.forEach((mesh) => {
       mesh.position.x = mesh.x - (scroll.current * scrollSpeed) + mesh.xExtra;
       
-      // Check boundaries for swapping - swap BEFORE mesh goes completely off-screen
-      // A mesh is "before" if its right edge is about to go off the left side of viewport
-      // A mesh is "after" if its left edge is about to go off the right side of viewport
+      // Only mark for swap when completely off screen (with large buffer)
       mesh.isBefore = (mesh.position.x + halfWidth) < -viewportOffset;
       mesh.isAfter = (mesh.position.x - halfWidth) > viewportOffset;
     });
     
-    // Swap logic: when scrolling right, move leftmost mesh to the right
-    // [dubl-1, dubl-2, dubl-3] -> [dubl-2, dubl-3, dubl-1]
     if (direction === 'right') {
       this.meshes.forEach((mesh) => {
         if (mesh.isBefore) {
-          // Find the rightmost mesh (highest position.x)
           const rightmostMesh = this.meshes.reduce((max, m) => 
             m.position.x > max.position.x ? m : max
           );
           
-          // Calculate the base position of the rightmost mesh (without scroll offset)
           const rightmostBaseX = rightmostMesh.x + rightmostMesh.xExtra;
-          
-          // Move this mesh to the right of the rightmost one
-          // Position it exactly one backgroundWidth to the right of the rightmost mesh's base position
           mesh.xExtra = rightmostBaseX + backgroundWidth - mesh.x;
-          
-          // Update position immediately
           mesh.position.x = mesh.x - (scroll.current * scrollSpeed) + mesh.xExtra;
           mesh.isBefore = false;
           mesh.isAfter = false;
@@ -172,24 +186,15 @@ export default class BackgroundImage {
       });
     }
     
-    // Swap logic: when scrolling left, move rightmost mesh to the left
-    // [dubl-1, dubl-2, dubl-3] -> [dubl-3, dubl-1, dubl-2]
     if (direction === 'left') {
       this.meshes.forEach((mesh) => {
         if (mesh.isAfter) {
-          // Find the leftmost mesh (lowest position.x)
           const leftmostMesh = this.meshes.reduce((min, m) => 
             m.position.x < min.position.x ? m : min
           );
           
-          // Calculate the base position of the leftmost mesh (without scroll offset)
           const leftmostBaseX = leftmostMesh.x + leftmostMesh.xExtra;
-          
-          // Move this mesh to the left of the leftmost one
-          // Position it exactly one backgroundWidth to the left of the leftmost mesh's base position
           mesh.xExtra = leftmostBaseX - backgroundWidth - mesh.x;
-          
-          // Update position immediately
           mesh.position.x = mesh.x - (scroll.current * scrollSpeed) + mesh.xExtra;
           mesh.isBefore = false;
           mesh.isAfter = false;
@@ -203,4 +208,3 @@ export default class BackgroundImage {
     this.resize();
   }
 }
-
