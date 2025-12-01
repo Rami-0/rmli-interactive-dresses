@@ -1,3 +1,44 @@
 $color-background: #fff;
 $color-gray: #2c2c2c;
 
+// ============================================
+// CYLINDRICAL ILLUSION TRANSFORM VARIABLES
+// ============================================
+$left-and-right-inactive-rotate-y: 40deg;
+// Active State (Any item when selected)
+$cylinder-active-translate-x: 0px;
+$cylinder-active-translate-z: 60px;
+$cylinder-active-rotate-y: 0deg;
+$cylinder-active-scale: 1;
+$cylinder-active-opacity: 1;
+$cylinder-active-z-index: 3;
+
+// Left Inactive State
+$cylinder-left-inactive-translate-x: -50px;
+$cylinder-left-inactive-translate-z: -40px;
+$cylinder-left-inactive-rotate-y: $left-and-right-inactive-rotate-y;
+$cylinder-left-inactive-scale: 0.88;
+$cylinder-left-inactive-opacity: 0.7;
+$cylinder-left-inactive-z-index: 1;
+
+// Center Inactive State
+$cylinder-center-inactive-translate-x: 0px;
+$cylinder-center-inactive-translate-z: -80px;
+$cylinder-center-inactive-translate-y: -60px;
+$cylinder-center-inactive-rotate-y: 0deg;
+$cylinder-center-inactive-scale: 0.78;
+$cylinder-center-inactive-opacity: 0.5;
+$cylinder-center-inactive-z-index: 0;
+
+// Right Inactive State
+$cylinder-right-inactive-translate-x: 50px;
+$cylinder-right-inactive-translate-z: -40px;
+$cylinder-right-inactive-rotate-y: -$left-and-right-inactive-rotate-y;
+$cylinder-right-inactive-scale: 0.88;
+$cylinder-right-inactive-opacity: 0.7;
+$cylinder-right-inactive-z-index: 1;
+
+// Blur values
+$cylinder-inactive-blur: 8px;
+$cylinder-active-blur: 0px;
+
