@@ -42,3 +42,13 @@ $cylinder-right-inactive-z-index: 1;
 $cylinder-inactive-blur: 8px;
 $cylinder-active-blur: 0px;
 
+// Mobile animation values
+$mobile-inactive-scale: 0.92;
+$mobile-active-scale: 1;
+$mobile-inactive-translate-x: 30px;
+$mobile-active-translate-x: 0px;
+$mobile-animation-duration: 0.6s;
+$mobile-animation-easing: cubic-bezier(0.25, 0.46, 0.45, 0.94);
+$mobile-opacity-duration: 0.5s;
+$mobile-opacity-easing: cubic-bezier(0.4, 0, 0.2, 1);
+

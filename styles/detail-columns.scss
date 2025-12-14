@@ -24,15 +24,26 @@
   // PERFORMANCE: Hide initially to prevent FOUC (Flash of Unstyled Content)
   &:not(.initialized) .detail-column {
     opacity: 0;
+    
+    @media (max-width: 768px) {
+      opacity: 0; // Keep mobile columns hidden until initialized
+    }
   }
 
   // PERFORMANCE: Smooth reveal with GPU acceleration
   &.initialized .detail-column {
-    opacity: 1;
-    transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
-      opacity 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
-      filter 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
-      z-index 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    @media (min-width: 769px) {
+      opacity: 1;
+      transition: transform 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+        opacity 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+        filter 0.8s cubic-bezier(0.34, 1.56, 0.64, 1),
+        z-index 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+    }
+    
+    @media (max-width: 768px) {
+      // Don't set opacity here on mobile - let active/inactive states control it
+      // This allows proper fade transitions between columns
+    }
   }
 
   @media (max-width: 1400px) {
@@ -50,7 +61,8 @@
     perspective: none; // Disable 3D on mobile for performance
 
     &.initialized .detail-column {
-      transition: all 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+      // Mobile transitions are handled by individual column states
+      // Don't override with 'all' transition here
     }
   }
 }
@@ -68,7 +80,7 @@
   cursor: pointer;
 
   // PERFORMANCE: Hint browser about transforms for GPU acceleration
-  will-change: transform, opacity;
+  will-change: transform, opacity, visibility;
   // PERFORMANCE: Force GPU layer
   backface-visibility: hidden;
   -webkit-backface-visibility: hidden;
@@ -90,10 +102,14 @@
     min-height: 100vh; // Ensure full height
     left: 0;
     top: 0;
-    transform: none;
-    transition: opacity 0.3s ease, visibility 0.3s ease;
+    transform: scale($mobile-inactive-scale) translateX($mobile-inactive-translate-x);
+    opacity: 0 !important; // Force initial opacity to 0
+    transition: transform $mobile-animation-duration $mobile-animation-easing,
+                opacity $mobile-opacity-duration $mobile-opacity-easing,
+                visibility $mobile-animation-duration ease;
     overflow-y: auto; // Allow scrolling
     -webkit-overflow-scrolling: touch; // Smooth scrolling on iOS
+    visibility: hidden;
   }
 
   @media (max-width: 480px) {
@@ -117,10 +133,11 @@
     pointer-events: auto;
 
     @media (max-width: 768px) {
-      transform: none;
-      opacity: 1;
+      transform: scale($mobile-active-scale) translateX($mobile-active-translate-x);
+      opacity: 1 !important; // Force opacity to 1 for active state
       visibility: visible;
       filter: none;
+      z-index: 10;
     }
   }
 
@@ -132,11 +149,12 @@
     pointer-events: auto;
 
     @media (max-width: 768px) {
-      opacity: 0;
-      transform: none;
+      opacity: 0 !important; // Force opacity to 0 for inactive state
+      transform: scale($mobile-inactive-scale) translateX($mobile-inactive-translate-x);
       pointer-events: none;
       visibility: hidden;
       filter: none;
+      z-index: 1;
     }
   }
 

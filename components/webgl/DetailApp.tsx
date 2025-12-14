@@ -32,11 +32,13 @@ export default function DetailApp({ itemId = '1' }: DetailAppProps) {
   const dress = useMemo(() => getDressById(itemId), [itemId]);
   
   // REFS: Touch tracking and timers
-  const touchStartRef = useRef({ x: 0, y: 0 });
+  const touchStartRef = useRef({ x: 0, y: 0, time: 0 });
   const touchMoveRef = useRef({ x: 0, y: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const wheelTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const rafRef = useRef<number | null>(null);
+  const swipeCooldownRef = useRef<number | null>(null);
+  const isSwipingRef = useRef(false);
 
   // INITIALIZATION: Mark as loaded and prevent FOUC
   useEffect(() => {
@@ -64,83 +66,131 @@ export default function DetailApp({ itemId = '1' }: DetailAppProps) {
   }, []);
 
   // DESKTOP: Wheel scroll navigation with optimized debouncing
-  useEffect(() => {
-    if (isMobile) return;
+  // COMMENTED OUT: Desktop scroll switching is currently disabled
+  // useEffect(() => {
+  //   if (isMobile) return;
 
-    /**
-     * PERFORMANCE: Uses debouncing to prevent rapid state changes
-     * that cause skipping. The 150ms delay ensures smooth transitions
-     * between columns without missing the middle one.
-     */
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault();
+  //   /**
+  //    * PERFORMANCE: Uses debouncing to prevent rapid state changes
+  //    * that cause skipping. The 150ms delay ensures smooth transitions
+  //    * between columns without missing the middle one.
+  //    */
+  //   const handleWheel = (e: WheelEvent) => {
+  //     e.preventDefault();
       
-      // Clear existing timeout
-      if (wheelTimeoutRef.current) {
-        clearTimeout(wheelTimeoutRef.current);
-      }
+  //     // Clear existing timeout
+  //     if (wheelTimeoutRef.current) {
+  //       clearTimeout(wheelTimeoutRef.current);
+  //     }
       
-      // OPTIMIZATION: Only trigger on significant scroll
-      if (Math.abs(e.deltaY) > 10) {
-        wheelTimeoutRef.current = setTimeout(() => {
-          if (e.deltaY > 0) {
-            // Scroll down → move right
-            setCurrentSlide((prev) => Math.min(2, prev + 1));
-          } else {
-            // Scroll up → move left
-            setCurrentSlide((prev) => Math.max(0, prev - 1));
-          }
-        }, 150); // Debounce: prevents skipping columns
-      }
-    };
+  //     // OPTIMIZATION: Only trigger on significant scroll
+  //     if (Math.abs(e.deltaY) > 10) {
+  //       wheelTimeoutRef.current = setTimeout(() => {
+  //         if (e.deltaY > 0) {
+  //           // Scroll down → move right
+  //           setCurrentSlide((prev) => Math.min(2, prev + 1));
+  //         } else {
+  //           // Scroll up → move left
+  //           setCurrentSlide((prev) => Math.max(0, prev - 1));
+  //         }
+  //       }, 150); // Debounce: prevents skipping columns
+  //     }
+  //   };
 
-    const container = containerRef.current;
-    if (container) {
-      // PERFORMANCE: { passive: false } required for preventDefault
-      container.addEventListener('wheel', handleWheel, { passive: false });
-    }
+  //   const container = containerRef.current;
+  //   if (container) {
+  //     // PERFORMANCE: { passive: false } required for preventDefault
+  //     container.addEventListener('wheel', handleWheel, { passive: false });
+  //   }
 
-    return () => {
-      if (container) {
-        container.removeEventListener('wheel', handleWheel);
-      }
-      if (wheelTimeoutRef.current) {
-        clearTimeout(wheelTimeoutRef.current);
-      }
-    };
-  }, [isMobile]);
+  //   return () => {
+  //     if (container) {
+  //       container.removeEventListener('wheel', handleWheel);
+  //     }
+  //     if (wheelTimeoutRef.current) {
+  //       clearTimeout(wheelTimeoutRef.current);
+  //     }
+  //   };
+  // }, [isMobile]);
 
-  // MOBILE: Touch swipe navigation with gesture detection
+  // MOBILE: Optimized touch swipe navigation with premium feel
   useEffect(() => {
     if (!isMobile) return;
 
+    // Configuration for smooth, intentional swipes
+    const SWIPE_THRESHOLD = 100; // Minimum distance in pixels (increased from 50)
+    const SWIPE_VELOCITY_THRESHOLD = 0.3; // Minimum velocity (px/ms)
+    const SWIPE_PERCENTAGE_THRESHOLD = 0.25; // Minimum 25% of screen width
+    const COOLDOWN_DURATION = 400; // Prevent rapid switching (ms)
+    const MAX_SWIPE_TIME = 500; // Maximum time for a valid swipe (ms)
+
     const handleTouchStart = (e: TouchEvent) => {
+      // Check cooldown period
+      if (swipeCooldownRef.current && Date.now() < swipeCooldownRef.current) {
+        return;
+      }
+
+      const touch = e.touches[0];
       touchStartRef.current = {
-        x: e.touches[0].clientX,
-        y: e.touches[0].clientY,
+        x: touch.clientX,
+        y: touch.clientY,
+        time: Date.now(),
       };
       touchMoveRef.current = { x: 0, y: 0 };
+      isSwipingRef.current = false;
     };
 
     const handleTouchMove = (e: TouchEvent) => {
+      if (!touchStartRef.current.time) return;
+
+      const touch = e.touches[0];
       touchMoveRef.current = {
-        x: e.touches[0].clientX - touchStartRef.current.x,
-        y: e.touches[0].clientY - touchStartRef.current.y,
+        x: touch.clientX - touchStartRef.current.x,
+        y: touch.clientY - touchStartRef.current.y,
       };
       
-      // OPTIMIZATION: Prevent default only for horizontal swipes
+      const absX = Math.abs(touchMoveRef.current.x);
+      const absY = Math.abs(touchMoveRef.current.y);
+      
+      // OPTIMIZATION: Only prevent default for clear horizontal swipes
       // This allows vertical scrolling within columns
-      if (Math.abs(touchMoveRef.current.x) > Math.abs(touchMoveRef.current.y)) {
+      if (absX > absY && absX > 30) {
+        isSwipingRef.current = true;
         e.preventDefault();
       }
     };
 
     const handleTouchEnd = () => {
+      if (!touchStartRef.current.time) return;
+
       const deltaX = touchMoveRef.current.x;
       const deltaY = touchMoveRef.current.y;
+      const absX = Math.abs(deltaX);
+      const absY = Math.abs(deltaY);
+      const swipeTime = Date.now() - touchStartRef.current.time;
+      const screenWidth = window.innerWidth;
       
-      // GESTURE DETECTION: Only trigger if horizontal swipe is dominant
-      if (Math.abs(deltaX) > Math.abs(deltaY) && Math.abs(deltaX) > 50) {
+      // Calculate swipe velocity
+      const velocity = absX / swipeTime;
+      
+      // Enhanced gesture detection with multiple criteria
+      const isHorizontalSwipe = absX > absY;
+      const meetsDistanceThreshold = absX > SWIPE_THRESHOLD;
+      const meetsPercentageThreshold = absX > (screenWidth * SWIPE_PERCENTAGE_THRESHOLD);
+      const meetsVelocityThreshold = velocity > SWIPE_VELOCITY_THRESHOLD;
+      const isWithinTimeLimit = swipeTime < MAX_SWIPE_TIME;
+      const isIntentionalSwipe = isSwipingRef.current && meetsDistanceThreshold && meetsPercentageThreshold;
+      
+      // Require all conditions for a valid swipe
+      if (
+        isHorizontalSwipe &&
+        isIntentionalSwipe &&
+        (meetsVelocityThreshold || absX > SWIPE_THRESHOLD * 1.5) && // Allow slower but longer swipes
+        isWithinTimeLimit
+      ) {
+        // Set cooldown to prevent rapid switching
+        swipeCooldownRef.current = Date.now() + COOLDOWN_DURATION;
+        
         // PERFORMANCE: Use requestAnimationFrame for smooth state update
         if (rafRef.current) {
           cancelAnimationFrame(rafRef.current);
@@ -150,7 +200,7 @@ export default function DetailApp({ itemId = '1' }: DetailAppProps) {
           if (deltaX > 0) {
             // Swipe right → previous column
             setCurrentSlide((prev) => Math.max(0, prev - 1));
-      } else {
+          } else {
             // Swipe left → next column
             setCurrentSlide((prev) => Math.min(2, prev + 1));
           }
@@ -158,8 +208,9 @@ export default function DetailApp({ itemId = '1' }: DetailAppProps) {
       }
       
       // Reset tracking
-      touchStartRef.current = { x: 0, y: 0 };
+      touchStartRef.current = { x: 0, y: 0, time: 0 };
       touchMoveRef.current = { x: 0, y: 0 };
+      isSwipingRef.current = false;
     };
 
     const container = containerRef.current;
@@ -168,6 +219,7 @@ export default function DetailApp({ itemId = '1' }: DetailAppProps) {
       container.addEventListener('touchstart', handleTouchStart, { passive: false });
       container.addEventListener('touchmove', handleTouchMove, { passive: false });
       container.addEventListener('touchend', handleTouchEnd, { passive: false });
+      container.addEventListener('touchcancel', handleTouchEnd, { passive: false });
     }
 
     return () => {
@@ -175,6 +227,7 @@ export default function DetailApp({ itemId = '1' }: DetailAppProps) {
         container.removeEventListener('touchstart', handleTouchStart);
         container.removeEventListener('touchmove', handleTouchMove);
         container.removeEventListener('touchend', handleTouchEnd);
+        container.removeEventListener('touchcancel', handleTouchEnd);
       }
       if (rafRef.current) {
         cancelAnimationFrame(rafRef.current);
