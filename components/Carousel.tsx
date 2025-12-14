@@ -12,9 +12,19 @@ interface CarouselProps {
 
 export default function Carousel({ totalSlides, currentIndex, onNavigate, infiniteLoop = false }: CarouselProps) {
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
     setMounted(true);
+    
+    const checkMobile = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    
+    return () => window.removeEventListener('resize', checkMobile);
   }, []);
 
   if (!mounted) return null;
@@ -57,15 +67,39 @@ export default function Carousel({ totalSlides, currentIndex, onNavigate, infini
       </button>
 
       <div className="carousel__dots">
-        {Array.from({ length: totalSlides }).map((_, index) => (
-          <button
-            key={index}
-            className={`carousel__dot ${index === currentIndex ? 'carousel__dot--active' : ''}`}
-            onClick={() => onNavigate(index)}
-            aria-label={`Go to slide ${index + 1}`}
-            aria-current={index === currentIndex ? 'true' : 'false'}
-          />
-        ))}
+        {Array.from({ length: totalSlides }).map((_, index) => {
+          // Calculate gap after this dot based on distance from active
+          // The gap between two dots is determined by the minimum distance of either dot from active
+          const distanceFromActive = Math.abs(index - currentIndex);
+          const nextIndex = index + 1;
+          const nextDistance = nextIndex < totalSlides ? Math.abs(nextIndex - currentIndex) : Infinity;
+          
+          // Gap is larger when at least one dot is close to active
+          // Use the minimum distance to determine gap size
+          const minDistance = Math.min(distanceFromActive, nextDistance);
+          
+          // Calculate gap: larger for dots closer to active, smaller for dots further away
+          // Desktop: base gap is 1.85rem, decreases by 0.35rem for each unit of distance
+          // Mobile: base gap is 0.75rem, decreases by 0.15rem for each unit of distance
+          const baseGap = isMobile ? 0.75 : 1;
+          const decreaseRate = isMobile ? 0.15 : 0.35;
+          const minGap = isMobile ? 0.2 : 0.3;
+          
+          const gap = index < totalSlides - 1 
+            ? Math.max(minGap, baseGap - (minDistance * decreaseRate))
+            : 0; // No gap after last dot
+          
+          return (
+            <button
+              key={index}
+              className={`carousel__dot ${index === currentIndex ? 'carousel__dot--active' : ''}`}
+              onClick={() => onNavigate(index)}
+              aria-label={`Go to slide ${index + 1}`}
+              aria-current={index === currentIndex ? 'true' : 'false'}
+              style={{ '--gap': `${gap}rem` } as React.CSSProperties}
+            />
+          );
+        })}
       </div>
 
       <button
