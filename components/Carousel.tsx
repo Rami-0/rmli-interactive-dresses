@@ -79,7 +79,7 @@ export default function Carousel({ totalSlides, currentIndex, onNavigate, infini
           const minDistance = Math.min(distanceFromActive, nextDistance);
           
           // Calculate gap: larger for dots closer to active, smaller for dots further away
-          // Desktop: base gap is 1.85rem, decreases by 0.35rem for each unit of distance
+          // Desktop: base gap is 1rem, decreases by 0.35rem for each unit of distance
           // Mobile: base gap is 0.75rem, decreases by 0.15rem for each unit of distance
           const baseGap = isMobile ? 0.75 : 1;
           const decreaseRate = isMobile ? 0.15 : 0.35;
