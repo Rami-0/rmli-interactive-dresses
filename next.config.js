@@ -17,6 +17,9 @@ const nextConfig = {
 
     return config;
   },
+  // Add empty turbopack config to silence Next.js 16 warning
+  // Webpack config is still needed for GLSL shader file handling
+  turbopack: {},
   images: {
     unoptimized: true, // Disable image optimization for WebGL textures
   },
